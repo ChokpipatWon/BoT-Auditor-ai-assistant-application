@@ -1,4 +1,5 @@
 import streamlit as st
+import re
 from embeddings import generate_embedding, openai
 from neo4j_utils import query_neo4j
 
@@ -38,21 +39,34 @@ async def chatbot_section(llm, driver):
                 """
                 query_type = llm._call(analysis_prompt).strip()
 
-                # Handle exact section queries
+                # Handle exact section queries for multiple มาตรา
                 if query_type == "exact_section_query" and "มาตรา" in user_input:
-                    section_number = user_input.split("มาตรา")[-1].strip().split()[0]
-                    cypher_query = f"""
-                    MATCH (s:Section {{section: '{section_number}'}})
-                    RETURN s.text AS sectionText, s.id AS sectionId
-                    """
-                    results = query_neo4j(driver, cypher_query, {})
-                    if results:
-                        retrieved_texts = "\n\n".join(f"Section: {r['sectionText']} (ID: {r['sectionId']})" for r in results)
-                        response_text = f"Retrieved Information for Section {section_number}:\n{retrieved_texts}"
-                    else:
-                        response_text = f"No exact match found for Section {section_number}."
+                    # Extract all section numbers using regex
+                    section_numbers = re.findall(r"มาตรา\s*(\d+)", user_input)
 
-                # Handle embedding-based queries
+                    if section_numbers:
+                        retrieved_texts = []
+                        for section_number in section_numbers:
+                            cypher_query = f"""
+                            MATCH (s:Section {{section: '{section_number}'}})
+                            RETURN s.text AS sectionText, s.id AS sectionId
+                            """
+                            results = query_neo4j(driver, cypher_query, {})
+                            if results:
+                                retrieved_texts.append(
+                                    "\n\n".join(
+                                        f"Section: {r['sectionText']} (ID: {r['sectionId']})" for r in results
+                                    )
+                                )
+                            else:
+                                retrieved_texts.append(f"No exact match found for Section {section_number}.")
+
+                        retrieved_text = "\n\n".join(retrieved_texts)
+                        response_text = f"Retrieved Information for Sections:\n{retrieved_text}"
+                    else:
+                        response_text = "No valid sections found in your query."
+
+                # Handle embedding-based queries (law_query and announcement_query)
                 else:
                     query_embedding = await generate_embedding(user_input)
                     if query_embedding is None:
@@ -65,7 +79,7 @@ async def chatbot_section(llm, driver):
                             $userInput,
                             "OpenAI",
                             { token: $apiKey }) AS userEmbedding
-                        CALL db.index.vector.queryNodes('chunk_embedding_index', 5, userEmbedding)
+                        CALL db.index.vector.queryNodes('chunk_embedding_index', 10, userEmbedding)
                         YIELD node, score
                         OPTIONAL MATCH (node)-[:NEXT]->(nextChunk:Chunk)
                         OPTIONAL MATCH (node)-[:PART_OF]->(doc:Document)
@@ -153,6 +167,7 @@ async def chatbot_section(llm, driver):
         # Add the assistant's response to the chat history
         st.session_state.chat_history.append(("assistant", response_text))
         st.chat_message("assistant").markdown(response_text)
+
 
 
 

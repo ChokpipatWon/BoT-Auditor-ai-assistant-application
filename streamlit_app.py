@@ -7,7 +7,7 @@ from neo4j import GraphDatabase
 from config import Config  # Import centralized configuration
 import asyncio
 
-# Neo4j connection details
+# Neo4j connection details :streamlit run streamlit_app.py
 NEO4J_URI = "neo4j+s://2696b0c1.databases.neo4j.io:7687"
 NEO4J_USER = "neo4j"
 NEO4J_PASSWORD = "USZbhA5ZkAjkNMtE-DfGkuSuvDn8beXUdt6kK7_8-kk"
@@ -43,7 +43,7 @@ def close_neo4j_driver():
         st.sidebar.info("No active Neo4j connection to close.")
 
 
-async def main():
+def main():
     st.set_page_config(page_title="BoT Auditor Assistant", page_icon="🏦")
 
     # Sidebar menu
@@ -73,22 +73,33 @@ async def main():
     else:
         st.warning("Please provide a Gemini API Key to use the Chatbot.")
 
+    # Initialize the Neo4j driver
+    driver = get_neo4j_driver()
+
+    # Debug: Display selected menu
+    st.write(f"Selected menu: {selected}")
+
     # Main menu logic
-    driver = get_neo4j_driver()  # Get the driver instance
-    if selected == "Chatbot":
-        if driver and llm:
-            await chatbot_section(llm, driver)  # Pass Neo4j driver and LLM
-        else:
-            st.error("Both Neo4j and Gemini must be initialized to use the chatbot.")
-    elif selected == "Minute Meeting Checker":
-        if llm:
-            minute_meeting_checker_section(llm)
-        else:
-            st.error("Gemini model must be initialized to use the Minute Meeting Checker.")
+    try:
+        if selected == "Chatbot":
+            st.header("Chatbot Section")
+            if driver and llm:
+                asyncio.run(chatbot_section(llm, driver))  # Pass Neo4j driver and LLM
+            else:
+                st.error("Both Neo4j and Gemini must be initialized to use the chatbot.")
+        elif selected == "Minute Meeting Checker":
+            st.header("Minute Meeting Checker Section")
+            if llm and driver:
+                asyncio.run(minute_meeting_checker_section(llm, driver))  # Pass Neo4j driver and LLM
+            else:
+                st.error("Both Gemini model and Neo4j driver must be initialized to use the Minute Meeting Checker.")
+    except Exception as e:
+        st.error(f"Error in {selected}: {e}")
 
     # Close Neo4j connection when done
     close_neo4j_driver()
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
+
