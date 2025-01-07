@@ -15,7 +15,6 @@ NEO4J_PASSWORD = "USZbhA5ZkAjkNMtE-DfGkuSuvDn8beXUdt6kK7_8-kk"
 # Global variable to manage Neo4j driver
 driver = None
 
-
 def get_neo4j_driver():
     """Initialize and return the Neo4j driver if not already initialized."""
     global driver
@@ -27,7 +26,6 @@ def get_neo4j_driver():
             st.sidebar.error(f"Failed to connect to Neo4j: {e}")
             driver = None
     return driver
-
 
 def close_neo4j_driver():
     """Close the Neo4j driver if it has been initialized."""
@@ -42,25 +40,43 @@ def close_neo4j_driver():
     else:
         st.sidebar.info("No active Neo4j connection to close.")
 
-
 def main():
     st.set_page_config(page_title="BoT Auditor Assistant", page_icon="🏦")
 
     # Sidebar menu
     with st.sidebar:
-        selected = option_menu("Main Menu", ["Chatbot", "Minute Meeting Checker"], icons=["chat", "file-text"])
+        # Change "Chatbot" to your desired string
+        selected = option_menu(
+            "Main Menu", 
+            ["Minute Meeting Checker", "Ask your legal questions or queries!"], 
+            icons=["file-text", "chat"]
+        )
 
-        # Input Gemini API Key
-        gemini_api_key = st.text_input("Gemini API Key:", placeholder="Enter your Gemini API Key", type="password")
-        if gemini_api_key:
-            Config.set_gemini_key(gemini_api_key)
-            st.success("Gemini API Key set successfully.")
+        # Single Expander for both Gemini and OpenAI API Keys
+        with st.expander("API Key Settings", expanded=False):
+            st.markdown("#### Gemini API Key")
+            gemini_api_key = st.text_input(
+                label="Gemini API Key:",
+                placeholder="Paste your Gemini API Key here",
+                type="password",
+                label_visibility="collapsed"
+            )
+            if gemini_api_key:
+                Config.set_gemini_key(gemini_api_key)
+                st.success("Gemini API Key set successfully.")
 
-        # Input OpenAI API Key
-        openai_api_key = st.text_input("OpenAI API Key:", placeholder="Enter your OpenAI API Key", type="password")
-        if openai_api_key:
-            Config.set_openai_key(openai_api_key)
-            st.success("OpenAI API Key set successfully.")
+            st.markdown("---")  # Just a horizontal rule to separate the inputs
+
+            st.markdown("#### OpenAI API Key")
+            openai_api_key = st.text_input(
+                label="OpenAI API Key:",
+                placeholder="Paste your OpenAI API Key here",
+                type="password",
+                label_visibility="collapsed"
+            )
+            if openai_api_key:
+                Config.set_openai_key(openai_api_key)
+                st.success("OpenAI API Key set successfully.")
 
     # Initialize LLM if the Gemini API key is set
     llm = None
@@ -77,29 +93,30 @@ def main():
     driver = get_neo4j_driver()
 
     # Debug: Display selected menu
-    st.write(f"Selected menu: {selected}")
+    #st.write(f"Selected menu: {selected}")
 
     # Main menu logic
     try:
-        if selected == "Chatbot":
-            st.header("Chatbot Section")
+        if selected == "Minute Meeting Checker":
+            st.header("Minute Meeting Checker Section")
+            if llm and driver:
+                asyncio.run(minute_meeting_checker_section(llm, driver))
+            else:
+                st.error("Both Gemini model and Neo4j driver must be initialized to use the Minute Meeting Checker.")
+
+        # Change the check from "Chatbot" to the new string
+        elif selected == "Ask your legal questions or queries!":
+            # st.header("Ask your legal questions or queries!")  # <-- Remove or comment out
             if driver and llm:
                 asyncio.run(chatbot_section(llm, driver))  # Pass Neo4j driver and LLM
             else:
-                st.error("Both Neo4j and Gemini must be initialized to use the chatbot.")
-        elif selected == "Minute Meeting Checker":
-            st.header("Minute Meeting Checker Section")
-            if llm and driver:
-                asyncio.run(minute_meeting_checker_section(llm, driver))  # Pass Neo4j driver and LLM
-            else:
-                st.error("Both Gemini model and Neo4j driver must be initialized to use the Minute Meeting Checker.")
+                st.error("Both Neo4j and Gemini must be initialized to use this section.")
+
     except Exception as e:
         st.error(f"Error in {selected}: {e}")
 
     # Close Neo4j connection when done
     close_neo4j_driver()
 
-
 if __name__ == "__main__":
     main()
-

@@ -41,8 +41,9 @@ async def chatbot_section(llm, driver):
 
                 # Handle exact section queries for multiple มาตรา
                 if query_type == "exact_section_query" and "มาตรา" in user_input:
-                    # Extract all section numbers using regex
-                    section_numbers = re.findall(r"มาตรา\s*(\d+)", user_input)
+                    # Extract all section numbers (digits) from the user input
+                    # This will capture "38", "39", "40", etc. from "มาตรา 38, 39, 40..."
+                    section_numbers = re.findall(r"\d+", user_input)
 
                     if section_numbers:
                         retrieved_texts = []
