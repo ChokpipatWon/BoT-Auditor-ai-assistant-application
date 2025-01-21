@@ -168,19 +168,25 @@ async def minute_meeting_checker_section(llm, driver):
                     # Store the matched document name directly
                     matched_documents[subtopic_name] = matched_document
 
-                # Step 5: Process Subtopics with Matched Documents
-                import uuid
-                # Define report_data BEFORE the button
-                report_data = []
+ 
+            # Step 5: Process Subtopics with Matched Documents
+            import uuid
+            
+            # Initialize report data in session state if not already done
+            if "report_data" not in st.session_state:
+                st.session_state.report_data = []  # Initialize report data
+                st.session_state.processed_files = set()  # Track processed files
 
-            if st.button("Continue", key="unique_run_step_5"):
-                st.subheader("Step 5: Process Subtopics with Matched Documents")
-                report_data.clear()
+            # Use file name to prevent repeated execution for the same file
+            current_file = minutes_file.name if minutes_file else None
+
+            # Check if the current file has already been processed
+            if current_file and current_file not in st.session_state.processed_files:
+                report_data = []
 
                 # Enumerate the sections to use 'i' in the key
                 for i, (section, subtopics) in enumerate(sections.items()):
                     if section in ["งานที่ต้องดำเนินการและผู้รับผิดชอบ", "ประเด็นสำคัญอื่นๆ ที่ได้มีการหารือ"]:
-                        #st.write(f"Skipping section: {section}")
                         continue  # Skip further processing for these sections
 
                     with st.expander(section):
@@ -289,7 +295,9 @@ async def minute_meeting_checker_section(llm, driver):
 
                             # Add processed subtopic data
                             report_data.append((subtopic_name, subtopic_content, results, document_name, llm_comment))
-
+            # Store report data in session state and mark the file as processed
+            st.session_state.report_data = report_data
+            st.session_state.processed_files.add(current_file)
         except Exception as e:
             st.error(f"An error occurred while splitting and processing subtopics: {e}")
             return
